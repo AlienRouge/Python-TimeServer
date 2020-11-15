@@ -12,6 +12,7 @@ HTML = """
   <head>
     <meta charset="utf-8" />
     <title>Time Online</title>
+    <meta http-equiv="Refresh" content="0.1" />
   </head>
   <body>
     <main style="text-align: center; font-family: cursive; margin: auto">
@@ -40,22 +41,25 @@ def app(environ, start_response):
         try:
             received_data = json.loads(received_data)
         except JSONDecodeError:
-            start_response('200 OK', [('Content-Type', 'text/plain')])
+            start_response(status, [('Content-Type', 'text/plain')])
             return [b'JSON parsing failed.']
         try:
             date_type = received_data['date_type']
         except KeyError:
-            start_response('200 OK', [('Content-Type', 'text/plain')])
+            start_response(status, [('Content-Type', 'text/plain')])
             return [b'Date type key not found. ']
         try:
-            set_timezone = list(received_data['timezones'])
+            set_timezone = received_data['timezones']
         except KeyError:
             set_timezone = None
         time_zones = []
         if set_timezone:
+            if type(set_timezone) != list:
+                start_response(status, [('Content-Type', 'text/plain')])
+                return [b'Timezones should be in "List" format']
             if len(set_timezone) == 1:
                 try:
-                    time_zones = [tz.timezone(set_timezone[0])]
+                    time_zones.append(tz.timezone(set_timezone[0]))
                 except UnknownTimeZoneError:
                     start_response('200 OK', [('Content-Type', 'text/plain')])
                     return [b'Unknown time zone.']
@@ -63,23 +67,25 @@ def app(environ, start_response):
                 try:
                     time_zones.append(tz.timezone(set_timezone[0]))
                 except UnknownTimeZoneError:
-                    start_response('200 OK', [('Content-Type', 'text/plain')])
+                    start_response(status, [('Content-Type', 'text/plain')])
                     return [b'First time zone is unknown.']
                 try:
                     time_zones.append(tz.timezone(set_timezone[1]))
                 except UnknownTimeZoneError:
-                    start_response('200 OK', [('Content-Type', 'text/plain')])
+                    start_response(status, [('Content-Type', 'text/plain')])
                     return [b'Second time zone is unknown.']
         else:
-            time_zones = [get_localzone()]
+            time_zones.append(get_localzone())
         if date_type == 'time':
             server_answer = datetime.now(time_zones[0]).strftime('%X')
         elif date_type == 'date':
             server_answer = datetime.now(time_zones[0]).strftime('%b %d %Y')
+
         elif date_type == 'datediff':
             if len(time_zones) < 2:
-                start_response('200 OK', [('Content-Type', 'text/plain')])
-                return [b'Invalid number of "timezones" arguments for "datediff"']
+                start_response(status, [('Content-Type', 'text/plain')])
+                return [b'Invalid number of "timezones" arguments for "datediff" - Need(2).']
+
             first_time = datetime.now(tz=time_zones[0]).replace(tzinfo=None)
             second_time = datetime.now(tz=time_zones[1]).replace(tzinfo=None)
             if first_time > second_time:
@@ -87,10 +93,10 @@ def app(environ, start_response):
             else:
                 server_answer = str(second_time - first_time)
         else:
-            start_response('200 OK', [('Content-Type', 'text/plain')])
-            return [b'Invalid date type']
-        start_response('200 OK', [('Content-Type', 'text/plain')])
-        return [bytes(server_answer, encoding='utf-8')]
+            start_response(status, [('Content-Type', 'text/plain')])
+            return [b'Invalid "date" type']
+        start_response(status, [('Content-Type', 'text/plain')])
+        return [bytes(json.dumps(server_answer), encoding='utf-8')]
     else:
         set_timezone = environ['PATH_INFO'][1:]
         if set_timezone:
@@ -112,12 +118,6 @@ def app(environ, start_response):
         return [html_as_bytes]
 
 
-# if __name__ == '__main__':
-#     from wsgiref.simple_server import make_server
-#
-#     with make_server('', 9090, app) as httpd:
-#         print("Serving on http://localhost:9090/.")
-#         httpd.serve_forever()
 if __name__ == '__main__':
     from paste import reloader
     from paste.httpserver import serve
