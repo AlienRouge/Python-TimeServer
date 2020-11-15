@@ -1,5 +1,10 @@
 from datetime import datetime
 import pytz as tz
+from tzlocal import get_localzone
+import json
+
+from json import JSONDecodeError
+from pytz import UnknownTimeZoneError
 
 HTML = """
 <!DOCTYPE html>
@@ -10,15 +15,12 @@ HTML = """
   </head>
   <body>
     <main style="text-align: center; font-family: cursive; margin: auto">
-      <div class="header" style="font-weight: bold; font-size: 36px">
-        {locationbox} time
-      </div>
+      <div id="header" style="font-weight: bold; font-size: 36px"
+      >{locationbox} time</div>
       <div
-        class="timerow"
+        id="timerow"
         style="font-size: 130px; font-weight: bold; margin-top: -30px"
-      >
-        {timebox}
-      </div>
+      >{timebox}</div>
       <div
         class="footer"
         style="margin: -1em 0 0 10em; font-weight: bold; font-size: 40px"
@@ -31,32 +33,94 @@ HTML = """
 """
 
 
-def simple_app(environ, start_response):
+def app(environ, start_response):
     status = '200 OK'
-    print(environ['REQUEST_METHOD'])
-
-    set_timezone = environ['PATH_INFO'][1:]
-    if set_timezone:
+    if environ['REQUEST_METHOD'] == 'POST':
+        received_data = environ['wsgi.input'].read().decode("utf-8")
         try:
-            timezone = tz.timezone(set_timezone)
-        except(tz.UnknownTimeZoneError, AttributeError):
-            start_response(status, [('Content-type', 'text/plain; charset=utf-8')])
-            return [b'Error. Unknown Timezone']
-        city = str(timezone).split('/')[1]
+            received_data = json.loads(received_data)
+        except JSONDecodeError:
+            start_response('200 OK', [('Content-Type', 'text/plain')])
+            return [b'JSON parsing failed.']
+        try:
+            date_type = received_data['date_type']
+        except KeyError:
+            start_response('200 OK', [('Content-Type', 'text/plain')])
+            return [b'Date type key not found. ']
+        try:
+            set_timezone = list(received_data['timezones'])
+        except KeyError:
+            set_timezone = None
+        time_zones = []
+        if set_timezone:
+            if len(set_timezone) == 1:
+                try:
+                    time_zones = [tz.timezone(set_timezone[0])]
+                except UnknownTimeZoneError:
+                    start_response('200 OK', [('Content-Type', 'text/plain')])
+                    return [b'Unknown time zone.']
+            else:
+                try:
+                    time_zones.append(tz.timezone(set_timezone[0]))
+                except UnknownTimeZoneError:
+                    start_response('200 OK', [('Content-Type', 'text/plain')])
+                    return [b'First time zone is unknown.']
+                try:
+                    time_zones.append(tz.timezone(set_timezone[1]))
+                except UnknownTimeZoneError:
+                    start_response('200 OK', [('Content-Type', 'text/plain')])
+                    return [b'Second time zone is unknown.']
+        else:
+            time_zones = [get_localzone()]
+        if date_type == 'time':
+            server_answer = datetime.now(time_zones[0]).strftime('%X')
+        elif date_type == 'date':
+            server_answer = datetime.now(time_zones[0]).strftime('%b %d %Y')
+        elif date_type == 'datediff':
+            if len(time_zones) < 2:
+                start_response('200 OK', [('Content-Type', 'text/plain')])
+                return [b'Invalid number of "timezones" arguments for "datediff"']
+            first_time = datetime.now(tz=time_zones[0]).replace(tzinfo=None)
+            second_time = datetime.now(tz=time_zones[1]).replace(tzinfo=None)
+            if first_time > second_time:
+                server_answer = "-" + str(first_time - second_time)
+            else:
+                server_answer = str(second_time - first_time)
+        else:
+            start_response('200 OK', [('Content-Type', 'text/plain')])
+            return [b'Invalid date type']
+        start_response('200 OK', [('Content-Type', 'text/plain')])
+        return [bytes(server_answer, encoding='utf-8')]
     else:
-        timezone = None
-        city = "Server"
-    output_date = datetime.now(tz=timezone)
+        set_timezone = environ['PATH_INFO'][1:]
+        if set_timezone:
+            try:
+                timezone = tz.timezone(set_timezone)
+            except(tz.UnknownTimeZoneError, AttributeError):
+                start_response(status, [('Content-type', 'text/plain; charset=utf-8')])
+                return [b'Error. Unknown Timezone']
+            city = str(timezone).split('/')[1]
+        else:
+            timezone = get_localzone()
+            city = "Server"
+        output_date = datetime.now(tz=timezone)
 
-    start_response(status, [('Content-type', 'text/html')])
-    html = HTML.format(timebox=output_date.strftime('%X'), locationbox=city, datebox=output_date.strftime('%b %d %Y'))
-    html_as_bytes = html.encode('utf-8')
-    return [html_as_bytes]
+        start_response(status, [('Content-type', 'text/html')])
+        html = HTML.format(timebox=output_date.strftime('%X'), locationbox=city,
+                           datebox=output_date.strftime('%b %d %Y'))
+        html_as_bytes = html.encode('utf-8')
+        return [html_as_bytes]
 
 
+# if __name__ == '__main__':
+#     from wsgiref.simple_server import make_server
+#
+#     with make_server('', 9090, app) as httpd:
+#         print("Serving on http://localhost:9090/.")
+#         httpd.serve_forever()
 if __name__ == '__main__':
-    from wsgiref.simple_server import make_server
+    from paste import reloader
+    from paste.httpserver import serve
 
-    with make_server('', 9090, simple_app) as httpd:
-        print("Serving on http://localhost:9090/.")
-        httpd.serve_forever()
+    reloader.install()
+    serve(app)
