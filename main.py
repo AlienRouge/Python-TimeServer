@@ -85,7 +85,6 @@ def app(environ, start_response):
             if len(time_zones) < 2:
                 start_response(status, [('Content-Type', 'text/plain')])
                 return [b'Invalid number of "timezones" arguments for "datediff" - Need(2).']
-            print(len(time_zones))
             first_time = datetime.now(tz=time_zones[0]).replace(tzinfo=None)
             second_time = datetime.now(tz=time_zones[1]).replace(tzinfo=None)
             if first_time > second_time:
@@ -107,7 +106,7 @@ def app(environ, start_response):
             except(tz.UnknownTimeZoneError, AttributeError):
                 start_response(status, [('Content-type', 'text/plain; charset=utf-8')])
                 return [b'Error. Unknown Timezone']
-            city = str(timezone).split('/')[1]
+            city = str(timezone).split('/')[-1]
         else:
             timezone = get_localzone()
             city = "Server"
