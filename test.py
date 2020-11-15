@@ -67,4 +67,3 @@ _data = {'date_type': 'datediff', 'timezones': ['Etc/Zulu', 'Etc/GTC']}
 print(requests.post(url=server_url, data=json.dumps(_data)).text)
 _data = {'date_type': 'datediff', 'timezones': ['Etc/Zulu']}
 print(requests.post(url=server_url, data=json.dumps(_data)).text)
-
