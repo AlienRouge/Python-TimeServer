@@ -12,7 +12,7 @@ HTML = """
   <head>
     <meta charset="utf-8" />
     <title>Time Online</title>
-    <meta http-equiv="Refresh" content="0.1" />
+    <meta http-equiv="Refresh" content="1" /> <!--DELETE TAG FOR STOP REFRESH-->
   </head>
   <body>
     <main style="text-align: center; font-family: cursive; margin: auto">
@@ -56,7 +56,7 @@ def app(environ, start_response):
         if set_timezone:
             if type(set_timezone) != list:
                 start_response(status, [('Content-Type', 'text/plain')])
-                return [b'Timezones should be in "List" format']
+                return [b'Timezones should be in "list" format']
             if len(set_timezone) == 1:
                 try:
                     time_zones.append(tz.timezone(set_timezone[0]))
@@ -77,21 +77,23 @@ def app(environ, start_response):
         else:
             time_zones.append(get_localzone())
         if date_type == 'time':
-            server_answer = datetime.now(time_zones[0]).strftime('%X')
+            server_answer = {'Time': datetime.now(time_zones[0]).strftime('%X'), 'timezone': str(time_zones[0])}
         elif date_type == 'date':
-            server_answer = datetime.now(time_zones[0]).strftime('%b %d %Y')
+            server_answer = {'Date': datetime.now(time_zones[0]).strftime('%b %d %Y'), 'timezone': str(time_zones[0])}
 
         elif date_type == 'datediff':
             if len(time_zones) < 2:
                 start_response(status, [('Content-Type', 'text/plain')])
                 return [b'Invalid number of "timezones" arguments for "datediff" - Need(2).']
-
+            print(len(time_zones))
             first_time = datetime.now(tz=time_zones[0]).replace(tzinfo=None)
             second_time = datetime.now(tz=time_zones[1]).replace(tzinfo=None)
             if first_time > second_time:
                 server_answer = "-" + str(first_time - second_time)
             else:
                 server_answer = str(second_time - first_time)
+            server_answer = {'date_diff': str(server_answer), 'first_zone': str(time_zones[0]),
+                             'second_zone': str(time_zones[1])}
         else:
             start_response(status, [('Content-Type', 'text/plain')])
             return [b'Invalid "date" type']
