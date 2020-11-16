@@ -57,14 +57,21 @@ print()
 _data = {'date_type': 'datediff', 'timezones': 'Etc/Zulu'}
 print(requests.post(url=server_url, data=json.dumps(_data)).text)
 print()
-# Unknown time zone errors
+# Time zone errors
+# Unknown time zone.
 _data = {'date_type': 'time', 'timezones': ['Asia/Buenos_Aires']}
 print(requests.post(url=server_url, data=json.dumps(_data)).text)
+# First time zone is unknown.
 _data = {'date_type': 'datediff', 'timezones': ['Other/Zulu', 'Etc/UTC']}
 print(requests.post(url=server_url, data=json.dumps(_data)).text)
+# Second time zone is unknown.
 _data = {'date_type': 'datediff', 'timezones': ['Etc/Zulu', 'Etc/GTC']}
 print(requests.post(url=server_url, data=json.dumps(_data)).text)
-_data = {'date_type': 'datediff', 'timezones': ['Etc/Zulu']}  # Тесты +
+# Incorrect number of elements in "timezones" list. For "datediff" date type - Need(2).
+_data = {'date_type': 'datediff', 'timezones': ['Etc/Zulu']}
 print(requests.post(url=server_url, data=json.dumps(_data)).text)
-_data = {'date_type': 'datediff', 'timezones': []}  # Тесты +
+_data = {'date_type': 'datediff', 'timezones': ['Etc/Zulu', 'Etc/UTC', 'Egypt']}
+print(requests.post(url=server_url, data=json.dumps(_data)).text)
+# "None" in "timezones" argument. For "datediff" expected: list(zone1,zone2).
+_data = {'date_type': 'datediff'}
 print(requests.post(url=server_url, data=json.dumps(_data)).text)
