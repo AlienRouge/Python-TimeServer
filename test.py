@@ -9,17 +9,16 @@ diff_zone_url = server_url + "/Atlantic/Reykjavik"
 # HTML and tag values parsing
 print("-GET")
 # Server zone
+values = lambda x: [x.find("div", id="timerow").text, x.find("div", id="daterow").text, x.find("div", id="locrow").text]
 _html = BeautifulSoup(requests.get(server_url).text, features="html.parser")
 print(_html)
-html_parser = [_html.find("div", id="timerow").text, _html.find("div", id="header").text]
-print("PARSER: ", html_parser)
+print("PARSER: ", values(_html))
 # Reykjavik zone
 _html = BeautifulSoup(requests.get(diff_zone_url).text, features="html.parser")
 print(_html)
-html_parser = [_html.find("div", id="timerow").text, _html.find("div", id="header").text]
-print("PARSER: ", html_parser)
+print("PARSER: ", values(_html))
 # GET Exception: Wrong zone
-print("Wrong zone exception: ", requests.get(server_url + "/Tomsk").text)
+print("\nWrong zone exception: ", requests.get(server_url + "/Tomsk").text)
 
 # POST REQUESTS
 print("\n-POST")
@@ -65,5 +64,7 @@ _data = {'date_type': 'datediff', 'timezones': ['Other/Zulu', 'Etc/UTC']}
 print(requests.post(url=server_url, data=json.dumps(_data)).text)
 _data = {'date_type': 'datediff', 'timezones': ['Etc/Zulu', 'Etc/GTC']}
 print(requests.post(url=server_url, data=json.dumps(_data)).text)
-_data = {'date_type': 'datediff', 'timezones': ['Etc/Zulu']}
+_data = {'date_type': 'datediff', 'timezones': ['Etc/Zulu']}  # Тесты +
+print(requests.post(url=server_url, data=json.dumps(_data)).text)
+_data = {'date_type': 'datediff', 'timezones': []}  # Тесты +
 print(requests.post(url=server_url, data=json.dumps(_data)).text)

@@ -8,26 +8,28 @@ from pytz import UnknownTimeZoneError
 
 HTML = """
 <!DOCTYPE html>
-<html style="margin: 0; padding: 0; font-family: Arial">
+<html style='font-family: Timeis, "Arial Black", "Arial-BoldMT", "Arial Bold", Arial,
+Helvetica, sans-serif; color: #333; background-color: #edeef0;'>
   <head>
     <meta charset="utf-8" />
     <title>Time Online</title>
+    <link rel="stylesheet" href="style.css">
     <meta http-equiv="Refresh" content="1" /> <!--DELETE TAG FOR STOP REFRESH-->
   </head>
-  <body>
-    <main style="text-align: center; font-family: cursive; margin: auto">
-      <div id="header" style="font-weight: bold; font-size: 36px"
+  <body style="margin: 0; padding: 0;">
+    <div style="background: #c35; color: #fff; font-size: 30px; padding-left: 3em;">Time.what</div>
+    <main style="display: flex; flex-direction: column; text-align: center;">
+      <div id="locrow" style="font-weight: bold; font-size: 52px"
       >{locationbox} time</div>
       <div
         id="timerow"
-        style="font-size: 130px; font-weight: bold; margin-top: -30px"
+        style='font-size: 130px; font-weight: bold; margin-top: -40px; font-size: 11vw;
+        font-weight: 900;'
       >{timebox}</div>
       <div
-        class="footer"
-        style="margin: -1em 0 0 10em; font-weight: bold; font-size: 40px"
-      >
-       {datebox}
-      </div>
+        id="daterow"
+        style="margin: -40px 0 0 10em; font-weight: bold; font-size: 52px"
+      >{datebox}</div>
     </main>
   </body>
 </html>
@@ -35,56 +37,70 @@ HTML = """
 
 
 def app(environ, start_response):
-    status = '200 OK'
-    if environ['REQUEST_METHOD'] == 'POST':
+    def get_post_data(_environ):
         received_data = environ['wsgi.input'].read().decode("utf-8")
         try:
             received_data = json.loads(received_data)
         except JSONDecodeError:
-            start_response(status, [('Content-Type', 'text/plain')])
-            return [b'JSON parsing failed.']
+            return None, None, b'JSON parsing failed.'
         try:
-            date_type = received_data['date_type']
+            received_type = received_data['date_type']
         except KeyError:
-            start_response(status, [('Content-Type', 'text/plain')])
-            return [b'Date type key not found. ']
+            return None, None, b'Date type key not found.'
         try:
-            set_timezone = received_data['timezones']
+            received_zones = received_data['timezones']
         except KeyError:
-            set_timezone = None
-        time_zones = []
-        if set_timezone:
-            if type(set_timezone) != list:
-                start_response(status, [('Content-Type', 'text/plain')])
-                return [b'Timezones should be in "list" format']
-            if len(set_timezone) == 1:
+            received_zones = None  # Server timezone
+        return received_type, received_zones, None
+
+    def accept_post_zones(_date_type, zones):
+        accepted_zones = []
+        if type(zones) != list:
+            return None, b'Timezones should be in "list" format'
+        if (_date_type == 'date' or _date_type == 'time') and len(zones) == 1:
+            try:
+                accepted_zones.append(tz.timezone(zones[0]))
+            except UnknownTimeZoneError:
+                return None, b'Unknown time zone.'
+        elif _date_type == 'datediff':
+            if len(zones) == 2:
                 try:
-                    time_zones.append(tz.timezone(set_timezone[0]))
+                    accepted_zones.append(tz.timezone(zones[0]))
                 except UnknownTimeZoneError:
-                    start_response('200 OK', [('Content-Type', 'text/plain')])
-                    return [b'Unknown time zone.']
+                    return None, b'First time zone is unknown.'
+                try:
+                    accepted_zones.append(tz.timezone(zones[1]))
+                except UnknownTimeZoneError:
+                    return None, b'Second time zone is unknown.'
             else:
-                try:
-                    time_zones.append(tz.timezone(set_timezone[0]))
-                except UnknownTimeZoneError:
-                    start_response(status, [('Content-Type', 'text/plain')])
-                    return [b'First time zone is unknown.']
-                try:
-                    time_zones.append(tz.timezone(set_timezone[1]))
-                except UnknownTimeZoneError:
-                    start_response(status, [('Content-Type', 'text/plain')])
-                    return [b'Second time zone is unknown.']
+                return None, b'Incorrect number of elements in "timezones" list. For "datediff" date type - Need(2).'
         else:
-            time_zones.append(get_localzone())
+            return None, b'Invalid "date" type'
+        return accepted_zones, None
+
+    status = '200 OK'
+    if environ['REQUEST_METHOD'] == 'POST':
+        date_type, date_zones, error = get_post_data(environ)
+        if error:
+            start_response(status, [('Content-Type', 'text/plain')])
+            return [error]
+
+        time_zones = None
+        if date_zones:
+            time_zones, error = accept_post_zones(date_type, date_zones)
+        elif date_type != 'datediff':
+            time_zones = [get_localzone()]
+        else:
+            error = b'"None" in "timezones" argument. For "datediff" expected: list(zone1,zone2).'
+        if error:
+            start_response(status, [('Content-Type', 'text/plain')])
+            return [error]
+
         if date_type == 'time':
             server_answer = {'Time': datetime.now(time_zones[0]).strftime('%X'), 'timezone': str(time_zones[0])}
         elif date_type == 'date':
             server_answer = {'Date': datetime.now(time_zones[0]).strftime('%b %d %Y'), 'timezone': str(time_zones[0])}
-
-        elif date_type == 'datediff':
-            if len(time_zones) < 2:
-                start_response(status, [('Content-Type', 'text/plain')])
-                return [b'Invalid number of "timezones" arguments for "datediff" - Need(2).']
+        else:
             first_time = datetime.now(tz=time_zones[0]).replace(tzinfo=None)
             second_time = datetime.now(tz=time_zones[1]).replace(tzinfo=None)
             if first_time > second_time:
@@ -93,16 +109,14 @@ def app(environ, start_response):
                 server_answer = str(second_time - first_time)
             server_answer = {'date_diff': str(server_answer), 'first_zone': str(time_zones[0]),
                              'second_zone': str(time_zones[1])}
-        else:
-            start_response(status, [('Content-Type', 'text/plain')])
-            return [b'Invalid "date" type']
+
         start_response(status, [('Content-Type', 'text/plain')])
         return [bytes(json.dumps(server_answer), encoding='utf-8')]
     else:
-        set_timezone = environ['PATH_INFO'][1:]
-        if set_timezone:
+        date_zones = environ['PATH_INFO'][1:]
+        if date_zones:
             try:
-                timezone = tz.timezone(set_timezone)
+                timezone = tz.timezone(date_zones)
             except(tz.UnknownTimeZoneError, AttributeError):
                 start_response(status, [('Content-type', 'text/plain; charset=utf-8')])
                 return [b'Error. Unknown Timezone']
