@@ -38,7 +38,7 @@ Helvetica, sans-serif; color: #333; background-color: #edeef0;'>
 
 def time_app(environ, start_response):
     def get_post_data(_environ):
-        received_data = environ['wsgi.input'].read().decode("utf-8")
+        received_data = _environ['wsgi.input'].read().decode("utf-8")
         try:
             received_data = json.loads(received_data)
         except JSONDecodeError:
