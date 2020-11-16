@@ -54,6 +54,9 @@ print()
 _data = {'date_type': 'datediff', 'timezones': ['Etc/Zulu', 'Etc/UTC']}
 print(requests.post(url=server_url, data=_data).text)
 print()
+_data = {'date_type': 'datediff', 'timezones': ['Etc/Zulu', 'Etc/UTC']}
+print(requests.post(url=server_url, data=None).text)
+print()
 # Date_type key not found
 _data = {}
 print(requests.post(url=server_url, data=json.dumps(_data)).text)
