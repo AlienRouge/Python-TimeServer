@@ -36,7 +36,7 @@ Helvetica, sans-serif; color: #333; background-color: #edeef0;'>
 """
 
 
-def app(environ, start_response):
+def time_app(environ, start_response):
     def get_post_data(_environ):
         received_data = environ['wsgi.input'].read().decode("utf-8")
         try:
@@ -138,4 +138,4 @@ if __name__ == '__main__':
     from paste.httpserver import serve
 
     reloader.install()
-    serve(app)
+    serve(time_app)
