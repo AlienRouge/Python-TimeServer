@@ -41,8 +41,13 @@ print("Shanghai/Tomsk diff: " + requests.post(url=server_url, data=json.dumps(_d
 print()
 _data = {'date_type': 'datediff', 'timezones': ['Etc/GMT-14', 'Etc/GMT+12']}
 print("UTC-14/UTC+12 diff:" + requests.post(url=server_url, data=json.dumps(_data)).text)
+_data = {'date_type': 'datediff', 'timezones': ['Etc/GMT+12', 'Etc/GMT-14']}
+print("UTC+12/UTC-14 diff:" + requests.post(url=server_url, data=json.dumps(_data)).text)
+print()
 _data = {'date_type': 'datediff', 'timezones': ['Etc/Zulu', 'Etc/UTC']}
 print("Zulu/UTC diff:" + requests.post(url=server_url, data=json.dumps(_data)).text)
+_data = {'date_type': 'datediff', 'timezones': ['UTC', 'UTC']}
+print("UTC/UTC diff:" + requests.post(url=server_url, data=json.dumps(_data)).text)
 print()
 # POST EXCEPTIONS
 # JSON Decode Error
