@@ -36,48 +36,50 @@ Helvetica, sans-serif; color: #333; background-color: #edeef0;'>
 """
 
 
-def time_app(environ, start_response):
-    def get_post_data(_environ):
-        received_data = _environ['wsgi.input'].read().decode("utf-8")
-        try:
-            received_data = json.loads(received_data)
-        except JSONDecodeError:
-            return None, None, b'JSON parsing failed.'
-        try:
-            received_type = received_data['date_type']
-        except KeyError:
-            return None, None, b'Date type key not found.'
-        try:
-            received_zones = received_data['timezones']
-        except KeyError:
-            received_zones = None  # Server timezone
-        return received_type, received_zones, None
+def get_post_data(_environ):
+    received_data = _environ['wsgi.input'].read().decode("utf-8")
+    try:
+        received_data = json.loads(received_data)
+    except JSONDecodeError:
+        return None, None, b'JSON parsing failed.'
+    try:
+        received_type = received_data['date_type']
+    except KeyError:
+        return None, None, b'Date type key not found.'
+    try:
+        received_zones = received_data['timezones']
+    except KeyError:
+        received_zones = None  # Server timezone
+    return received_type, received_zones, None
 
-    def accept_post_zones(_date_type, zones):
-        accepted_zones = []
-        if type(zones) != list:
-            return None, b'Timezones should be in "list" format'
-        if (_date_type == 'date' or _date_type == 'time') and len(zones) == 1:
+
+def accept_post_zones(_date_type, zones):
+    accepted_zones = []
+    if type(zones) != list:
+        return None, b'Timezones should be in "list" format'
+    if (_date_type == 'date' or _date_type == 'time') and len(zones) == 1:
+        try:
+            accepted_zones.append(tz.timezone(zones[0]))
+        except UnknownTimeZoneError:
+            return None, b'Unknown time zone.'
+    elif _date_type == 'datediff':
+        if len(zones) == 2:
             try:
                 accepted_zones.append(tz.timezone(zones[0]))
             except UnknownTimeZoneError:
-                return None, b'Unknown time zone.'
-        elif _date_type == 'datediff':
-            if len(zones) == 2:
-                try:
-                    accepted_zones.append(tz.timezone(zones[0]))
-                except UnknownTimeZoneError:
-                    return None, b'First time zone is unknown.'
-                try:
-                    accepted_zones.append(tz.timezone(zones[1]))
-                except UnknownTimeZoneError:
-                    return None, b'Second time zone is unknown.'
-            else:
-                return None, b'Incorrect number of elements in "timezones" list. For "datediff" date type - Need(2).'
+                return None, b'First time zone is unknown.'
+            try:
+                accepted_zones.append(tz.timezone(zones[1]))
+            except UnknownTimeZoneError:
+                return None, b'Second time zone is unknown.'
         else:
-            return None, b'Invalid "date" type'
-        return accepted_zones, None
+            return None, b'Incorrect number of elements in "timezones" list. For "datediff" date type - Need(2).'
+    else:
+        return None, b'Invalid "date" type'
+    return accepted_zones, None
 
+
+def time_app(environ, start_response):
     status = '200 OK'
     if environ['REQUEST_METHOD'] == 'POST':
         date_type, date_zones, error = get_post_data(environ)
